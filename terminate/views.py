@@ -32,6 +32,7 @@
 # from django.shortcuts import render
 from django.shortcuts import render
 from django.http import JsonResponse
+from datetime import datetime, timedelta
 import boto3
 import os
 
@@ -73,3 +74,19 @@ def terminate_instances(request):
         return JsonResponse({'message': f'Terminated EC2 Instances: {", ".join(instance_ids)}'}, status=200)
 
     return JsonResponse({'message': 'Invalid request method'}, status=405)
+
+def cleanup_elastic_ips(ec2_client, retention_days):
+    """
+    Cleans up Elastic IPs that have been allocated but not associated with any resources for the specified number of days.
+    Returns a list of released Elastic IPs.
+    """
+    response = ec2_client.describe_addresses()
+    retention_period = datetime.now() - timedelta(days=retention_days)
+    released_ips = []
+
+    for address in response['Addresses']:
+        if 'AssociationId' not in address and address['AllocationTime'].replace(tzinfo=None) < retention_period:
+            ec2_client.release_address(AllocationId=address['AllocationId'])
+            released_ips.append(address['PublicIp'])
+
+    return released_ips
