@@ -45,14 +45,6 @@ Run the following command to build and start the services:
 docker-compose up --build
 ```
 
-### 5. Run Migrations (if needed)
-
-If the project requires database migrations, run them using Docker Compose:
-
-```bash
-docker-compose run web python manage.py migrate
-```
-
 ## Usage
 
 ### Terminate EC2 Instances
