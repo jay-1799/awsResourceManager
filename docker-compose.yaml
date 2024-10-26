@@ -5,5 +5,12 @@ services:
     env_file:
       - .env
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app # Mounts current directory to /app inside the container
     ports:
       - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true # Needed for live reload
+    tty: true # Needed for live reload
+
