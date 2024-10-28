@@ -4,7 +4,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: django-backend
+    container_name: backend
     env_file:
       - ./backend/.env
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
@@ -20,7 +20,7 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: react-frontend
+    container_name: frontend
     ports:
       - "3000:80" # Map port 3000 on host to port 80 in container
     depends_on:

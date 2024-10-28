@@ -57,7 +57,7 @@ def terminate_instances(request):
     
     return JsonResponse({'message': 'Invalid request method'}, status=405)
 
-
+@csrf_exempt
 def cleanup_elastic_ips(request):
     if request.method == 'POST':
         retention_days = request.POST.get('retentionDays')
@@ -73,8 +73,8 @@ def cleanup_elastic_ips(request):
         aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
         aws_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
 
-        if not aws_access_key_id or not aws_secret_access_key:
-            return JsonResponse({'message': 'AWS credentials are not set'}, status=500)
+        # if not aws_access_key_id or not aws_secret_access_key:
+        #     return JsonResponse({'message': 'AWS credentials are not set'}, status=500)
 
         ec2 = boto3.client(
             'ec2',
