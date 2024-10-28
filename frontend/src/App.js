@@ -19,18 +19,15 @@ function TerminateInstances() {
   const handleTerminateInstances = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/terminate_instances/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": csrfToken,
-          },
-          body: JSON.stringify({ tagKey, tagValue }),
-        }
-      );
+      const response = await fetch("http://backend/terminate_instances/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({ tagKey, tagValue }),
+      });
       const data = await response.json();
       setResult(data.message);
     } catch (error) {
