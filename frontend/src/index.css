@@ -98,3 +98,7 @@ button:hover {
   background-color: #f8d7da; /* Light red background */
   color: #721c24; /* Dark red text */
 }
+
+.instance-info {
+  color: #ffffff; /* White color for instance ID and state */
+}

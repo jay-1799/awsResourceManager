@@ -9,7 +9,7 @@ function App() {
           <TerminateInstances />
         </div>
         <div className="component">
-          <StopEC2Instances />
+          <StopInstances />
         </div>
         <div className="component">
           <CleanupS3Objects />
@@ -37,69 +37,150 @@ function App() {
   );
 }
 
-function TerminateInstances() {
+const InstanceManagement = ({ actionType }) => {
   const [tagKey, setTagKey] = useState("");
   const [tagValue, setTagValue] = useState("");
+  const [instances, setInstances] = useState([]);
+  const [selectedInstances, setSelectedInstances] = useState([]);
   const [result, setResult] = useState("");
+  const [error, setError] = useState("");
   const csrfToken = getCookie("csrftoken");
 
-  const handleTerminateInstances = async (e) => {
+  const handleFetchInstances = async (e) => {
     e.preventDefault();
+    setError(""); // Reset error state
+    setResult(""); // Reset result state
+
     try {
-      const response = await fetch(
-        "http://localhost:8000/terminate_instances/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": csrfToken,
-          },
-          body: JSON.stringify({ tagKey, tagValue }),
-        }
-      );
+      const response = await fetch("http://localhost:8000/fetch_instances/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({ tagKey, tagValue }),
+      });
+
       const data = await response.json();
-      setResult(data.message);
+      if (response.ok) {
+        setInstances(data.instances);
+      } else {
+        setError(data.message);
+      }
     } catch (error) {
-      setResult("Failed to terminate instances. Please try again.");
+      setError("Failed to fetch instances. Please try again.");
+    }
+  };
+
+  const handleCheckboxChange = (instanceId) => {
+    setSelectedInstances((prevSelected) => {
+      if (prevSelected.includes(instanceId)) {
+        return prevSelected.filter((id) => id !== instanceId); // Remove if already selected
+      } else {
+        return [...prevSelected, instanceId]; // Add if not selected
+      }
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    setError(""); // Reset error state
+    setResult(""); // Reset result state
+
+    const endpoint =
+      actionType === "terminate"
+        ? "http://localhost:8000/terminate_selected_instances/"
+        : "http://localhost:8000/stop_selected_instances/";
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({ instanceIds: selectedInstances }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setResult(data.message);
+        setInstances([]); // Clear instances after action
+        setSelectedInstances([]); // Clear selected instances
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError(
+        `Failed to ${
+          actionType === "terminate" ? "terminate" : "stop"
+        } instances. Please try again.`
+      );
     }
   };
 
   return (
-    <div>
-      <h2>Terminate EC2 Instances</h2>
-      <form onSubmit={handleTerminateInstances}>
-        <label>
-          Tag Key:
-          <input
-            type="text"
-            value={tagKey}
-            onChange={(e) => setTagKey(e.target.value)}
-            required
-          />
-        </label>
-        <br />
-        <label>
-          Tag Value:
-          <input
-            type="text"
-            value={tagValue}
-            onChange={(e) => setTagValue(e.target.value)}
-            required
-          />
-        </label>
-        <br />
-        <button type="submit">Terminate Instances</button>
+    <div className="App">
+      <h1>{actionType === "terminate" ? "Terminate" : "Stop"} Instances</h1>
+      <form onSubmit={handleFetchInstances}>
+        <label htmlFor="tagKey">Tag Key</label>
+        <input
+          type="text"
+          id="tagKey"
+          value={tagKey}
+          onChange={(e) => setTagKey(e.target.value)}
+          required
+        />
+
+        <label htmlFor="tagValue">Tag Value</label>
+        <input
+          type="text"
+          id="tagValue"
+          value={tagValue}
+          onChange={(e) => setTagValue(e.target.value)}
+          required
+        />
+
+        <button type="submit">Fetch Instances</button>
       </form>
 
-      {result && (
-        <div style={{ marginTop: "10px" }}>
-          <p>{result}</p>
+      {instances.length > 0 && (
+        <div className="component-container">
+          <h2>
+            Select Instances to{" "}
+            {actionType === "terminate" ? "Terminate" : "Stop"}:
+          </h2>
+          {instances.map((instance) => (
+            <div key={instance.InstanceId} className="component">
+              <input
+                type="checkbox"
+                checked={selectedInstances.includes(instance.InstanceId)}
+                onChange={() => handleCheckboxChange(instance.InstanceId)}
+              />
+              <span className="instance-info">
+                {instance.InstanceId} - {instance.State.Name}
+              </span>
+            </div>
+          ))}
+          <button onClick={handleConfirmAction}>
+            {actionType === "terminate"
+              ? "Terminate Selected"
+              : "Stop Selected"}
+          </button>
         </div>
       )}
+
+      {result && <div className="result">{result}</div>}
+      {error && <div className="error">{error}</div>}
     </div>
   );
-}
+};
+
+export const TerminateInstances = () => (
+  <InstanceManagement actionType="terminate" />
+);
+export const StopInstances = () => <InstanceManagement actionType="stop" />;
 
 function CleanupIPs() {
   const [retentionDays, setRetentionDays] = useState(7);
@@ -129,8 +210,8 @@ function CleanupIPs() {
   };
 
   return (
-    <div>
-      <h2>Cleanup Unused Elastic IPs</h2>
+    <div className="App">
+      <h1>Cleanup Unused Elastic IPs</h1>
       <form onSubmit={handleCleanupIPs}>
         <label>
           Retention Days for Unused EIPs:
@@ -180,8 +261,8 @@ function CleanupAMIs() {
   };
 
   return (
-    <div>
-      <h2>Cleanup Unused AMIs</h2>
+    <div className="App">
+      <h1>Cleanup Unused AMIs</h1>
       <form onSubmit={handleCleanupAMIs}>
         <label>
           Retention Days for Unused AMIs:
@@ -229,8 +310,8 @@ function DeleteCloudWatchLogs() {
   };
 
   return (
-    <div>
-      <h2>Delete CloudWatch Log Groups</h2>
+    <div className="App">
+      <h1>Delete CloudWatch Log Groups</h1>
       <form onSubmit={handleDeleteLogs}>
         <label>
           Age (Days):
@@ -275,8 +356,8 @@ function DeleteIAMUser() {
   };
 
   return (
-    <div>
-      <h2>Delete IAM User</h2>
+    <div className="App">
+      <h1>Delete IAM User</h1>
       <form onSubmit={handleDeleteIAMUser}>
         <label>
           IAM Username:
@@ -295,64 +376,64 @@ function DeleteIAMUser() {
   );
 }
 
-function StopEC2Instances() {
-  const [tagKey, setTagKey] = useState("");
-  const [tagValue, setTagValue] = useState("");
-  const [result, setResult] = useState("");
-  const csrfToken = getCookie("csrftoken");
+// function StopEC2Instances() {
+//   const [tagKey, setTagKey] = useState("");
+//   const [tagValue, setTagValue] = useState("");
+//   const [result, setResult] = useState("");
+//   const csrfToken = getCookie("csrftoken");
 
-  const handleStopEC2Instances = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(
-        "http://localhost:8000/stop_ec2_instances/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": csrfToken,
-          },
-          body: JSON.stringify({ tagKey, tagValue }),
-        }
-      );
-      const data = await response.json();
-      setResult(data.message);
-    } catch (error) {
-      setResult("Failed to stop EC2 instances. Please try again.");
-    }
-  };
+//   const handleStopEC2Instances = async (e) => {
+//     e.preventDefault();
+//     try {
+//       const response = await fetch(
+//         "http://localhost:8000/stop_ec2_instances/",
+//         {
+//           method: "POST",
+//           headers: {
+//             "Content-Type": "application/json",
+//             "X-Requested-With": "XMLHttpRequest",
+//             "X-CSRFToken": csrfToken,
+//           },
+//           body: JSON.stringify({ tagKey, tagValue }),
+//         }
+//       );
+//       const data = await response.json();
+//       setResult(data.message);
+//     } catch (error) {
+//       setResult("Failed to stop EC2 instances. Please try again.");
+//     }
+//   };
 
-  return (
-    <div>
-      <h2>Stop EC2 Instances</h2>
-      <form onSubmit={handleStopEC2Instances}>
-        <label>
-          Tag Key:
-          <input
-            type="text"
-            value={tagKey}
-            onChange={(e) => setTagKey(e.target.value)}
-            required
-          />
-        </label>
-        <br />
-        <label>
-          Tag Value:
-          <input
-            type="text"
-            value={tagValue}
-            onChange={(e) => setTagValue(e.target.value)}
-            required
-          />
-        </label>
-        <br />
-        <button type="submit">Stop Instances</button>
-      </form>
-      {result && <div className="result">{result}</div>}
-    </div>
-  );
-}
+//   return (
+//     <div>
+//       <h2>Stop EC2 Instances</h2>
+//       <form onSubmit={handleStopEC2Instances}>
+//         <label>
+//           Tag Key:
+//           <input
+//             type="text"
+//             value={tagKey}
+//             onChange={(e) => setTagKey(e.target.value)}
+//             required
+//           />
+//         </label>
+//         <br />
+//         <label>
+//           Tag Value:
+//           <input
+//             type="text"
+//             value={tagValue}
+//             onChange={(e) => setTagValue(e.target.value)}
+//             required
+//           />
+//         </label>
+//         <br />
+//         <button type="submit">Stop Instances</button>
+//       </form>
+//       {result && <div className="result">{result}</div>}
+//     </div>
+//   );
+// }
 
 function RemovePortFromSecurityGroups() {
   const [port, setPort] = useState("");
@@ -384,8 +465,8 @@ function RemovePortFromSecurityGroups() {
   };
 
   return (
-    <div>
-      <h2>Remove Port from SGs</h2>
+    <div className="App">
+      <h1>Remove Port from SGs</h1>
       <form onSubmit={handleRemovePort}>
         <label>
           Port Number:
@@ -432,8 +513,8 @@ function DetectInfrastructureDrift() {
   };
 
   return (
-    <div>
-      <h2>Detect Infrastructure Drift</h2>
+    <div className="App">
+      <h1>Detect Infrastructure Drift</h1>
       <form onSubmit={handleDetectDrift}>
         <label>
           Directory Path:
@@ -486,8 +567,8 @@ function CleanupS3Objects() {
   };
 
   return (
-    <div>
-      <h2>Cleanup S3 Objects</h2>
+    <div className="App">
+      <h1>Cleanup S3 Objects</h1>
       <form onSubmit={handleCleanupS3Objects}>
         <label>
           S3 Bucket Name:
