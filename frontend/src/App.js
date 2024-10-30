@@ -182,6 +182,70 @@ export const TerminateInstances = () => (
 );
 export const StopInstances = () => <InstanceManagement actionType="stop" />;
 
+function CleanupS3Objects() {
+  const [bucketName, setBucketName] = useState("");
+  const [retentionPeriod, setRetentionPeriod] = useState("");
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleCleanupS3Objects = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/cleanup_s3_objects/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+          body: JSON.stringify({ bucketName, retentionPeriod }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete objects");
+      }
+
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to clean up S3 objects. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Cleanup S3 Objects</h1>
+      <form onSubmit={handleCleanupS3Objects}>
+        <label>
+          S3 Bucket Name:
+          <input
+            type="text"
+            value={bucketName}
+            onChange={(e) => setBucketName(e.target.value)}
+            required
+          />
+        </label>
+        {/* <br /> */}
+        <label>
+          Retention Period (in days):
+          <input
+            type="number"
+            value={retentionPeriod}
+            onChange={(e) => setRetentionPeriod(e.target.value)}
+            required
+          />
+        </label>
+        {/* <br /> */}
+        <button type="submit">Cleanup S3 Objects</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
 function CleanupIPs() {
   const [retentionDays, setRetentionDays] = useState(7);
   const [result, setResult] = useState("");
@@ -228,7 +292,7 @@ function CleanupIPs() {
       </form>
 
       {result && (
-        <div style={{ marginTop: "10px" }}>
+        <div className="result">
           <p>{result}</p>
         </div>
       )}
@@ -277,7 +341,11 @@ function CleanupAMIs() {
         <br />
         <button type="submit">Cleanup AMIs</button>
       </form>
-      {result && <p>{result}</p>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -326,7 +394,11 @@ function DeleteCloudWatchLogs() {
         <br />
         <button type="submit">Delete Log Groups</button>
       </form>
-      {result && <p>{result}</p>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -371,7 +443,11 @@ function DeleteIAMUser() {
         <br />
         <button type="submit">Delete IAM User</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -480,7 +556,11 @@ function RemovePortFromSecurityGroups() {
         <br />
         <button type="submit">Remove Port</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -528,71 +608,11 @@ function DetectInfrastructureDrift() {
         <br />
         <button type="submit">Detect Drift</button>
       </form>
-      {result && <div className="result">{result}</div>}
-    </div>
-  );
-}
-
-function CleanupS3Objects() {
-  const [bucketName, setBucketName] = useState("");
-  const [retentionPeriod, setRetentionPeriod] = useState("");
-  const [result, setResult] = useState("");
-  const csrfToken = getCookie("csrftoken"); // Function to get CSRF token if needed
-
-  const handleCleanupS3Objects = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(
-        "http://localhost:8000/cleanup_s3_objects/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": csrfToken,
-          },
-          body: JSON.stringify({ bucketName, retentionPeriod }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete objects");
-      }
-
-      const data = await response.json();
-      setResult(data.message);
-    } catch (error) {
-      setResult("Failed to clean up S3 objects. Please try again.");
-    }
-  };
-
-  return (
-    <div className="App">
-      <h1>Cleanup S3 Objects</h1>
-      <form onSubmit={handleCleanupS3Objects}>
-        <label>
-          S3 Bucket Name:
-          <input
-            type="text"
-            value={bucketName}
-            onChange={(e) => setBucketName(e.target.value)}
-            required
-          />
-        </label>
-        <br />
-        <label>
-          Retention Period (in days):
-          <input
-            type="number"
-            value={retentionPeriod}
-            onChange={(e) => setRetentionPeriod(e.target.value)}
-            required
-          />
-        </label>
-        <br />
-        <button type="submit">Cleanup S3 Objects</button>
-      </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
