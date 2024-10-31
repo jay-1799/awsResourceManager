@@ -7,6 +7,25 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from botocore.exceptions import ClientError
 import logging
+from .helpers import (
+    delete_access_keys,
+    delete_signing_certificates,
+    delete_login_profile,
+    delete_mfa_devices,
+    detach_policies,
+    delete_inline_policies,
+    delete_permission_boundary,
+    remove_user_from_groups,
+    delete_ssh_public_keys,
+    get_owned_amis,
+    get_used_amis,
+    get_cloudwatch_log_groups,
+    get_all_security_groups,
+    remove_port_rule_from_security_group
+
+)
+
+from .drift_helpers import (get_drift_data)
 
 logger = logging.getLogger(__name__)
 
@@ -239,24 +258,6 @@ def cleanup_amis(request):
         
     return JsonResponse({'message': 'Invalid request method'}, status=405)
 
-def get_owned_amis(ec2_client):
-    """Retrieve all AMIs owned by the account."""
-    owned_amis = []
-    paginator = ec2_client.get_paginator("describe_images")
-    for page in paginator.paginate(Owners=["self"]):
-        owned_amis.extend(page["Images"])
-    return owned_amis
-
-def get_used_amis(ec2_client):
-    """Retrieve all AMIs currently in use by instances."""
-    used_amis = set()
-    paginator = ec2_client.get_paginator("describe_instances")
-    for page in paginator.paginate():
-        for reservation in page["Reservations"]:
-            for instance in reservation["Instances"]:
-                if "ImageId" in instance:
-                    used_amis.add(instance["ImageId"])
-    return used_amis
 
 def delete_unused_amis(ec2_client, unused_amis):
     """Delete unused AMIs and associated snapshots."""
@@ -339,9 +340,93 @@ def delete_cloudwatch_logs(request):
         return JsonResponse({"message": "Invalid request method."}, status=400)
 
 
-def get_cloudwatch_log_groups(client):
-    log_groups = []
-    paginator = client.get_paginator("describe_log_groups")
-    for page in paginator.paginate():
-        log_groups.extend(page["logGroups"])
-    return log_groups
+@csrf_exempt
+def delete_iam_user_complete(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            user_name = data.get('username')
+
+            client = boto3.client(
+                'iam',
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+            )
+
+            delete_access_keys(client, user_name)
+            delete_signing_certificates(client, user_name)
+            delete_login_profile(client, user_name)
+            delete_mfa_devices(client, user_name)
+            detach_policies(client, user_name)
+            delete_inline_policies(client, user_name)
+            delete_permission_boundary(client, user_name)
+            remove_user_from_groups(client, user_name)
+            delete_ssh_public_keys(client, user_name)
+
+    
+            client.delete_user(UserName=user_name)
+            return JsonResponse({"message": f"User {user_name} deleted successfully."}, status=200)
+
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            if error_code == "NoSuchEntity":
+                return JsonResponse({"error": f"User {user_name} does not exist."}, status=404)
+            else:
+                return JsonResponse({"error": str(e)}, status=500)
+                
+    return JsonResponse({"error": "Invalid request method."}, status=405)
+            
+
+@csrf_exempt
+def remove_port_from_security_groups(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            port = int(data.get("port", 22))  # Default to port 22 if no port is provided
+            client = boto3.client(
+                'ec2',
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+            )
+            security_groups = get_all_security_groups(client)
+            affected_groups = 0
+            
+            for sg in security_groups:
+                if remove_port_rule_from_security_group(sg, port,client):
+                    affected_groups += 1
+            
+            return JsonResponse({
+                "message": f"Successfully removed port {port} rule from {affected_groups} security groups."
+            })
+        except Exception as e:
+            logger.error(f"Error processing request: {e}")
+            return JsonResponse({
+                "message": "Failed to remove port from security groups. Please try again."
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)
+    
+@csrf_exempt
+def detect_infrastructure_drift(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            directory = data.get("directory", "")
+            
+            drift_data = get_drift_data(directory)
+            
+            response_data = {
+                "message": "Infrastructure drift detection completed.",
+                "drift_data": drift_data
+            }
+            return JsonResponse(response_data, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred during drift detection.",
+                "error": str(e)
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)

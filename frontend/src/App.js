@@ -411,15 +411,18 @@ function DeleteIAMUser() {
   const handleDeleteIAMUser = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://localhost:8000/delete_iam_user/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-          "X-CSRFToken": csrfToken,
-        },
-        body: JSON.stringify({ username }),
-      });
+      const response = await fetch(
+        "http://localhost:8000/delete_iam_user_complete/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+          body: JSON.stringify({ username }),
+        }
+      );
       const data = await response.json();
       setResult(data.message);
     } catch (error) {
@@ -568,6 +571,7 @@ function RemovePortFromSecurityGroups() {
 function DetectInfrastructureDrift() {
   const [directory, setDirectory] = useState("");
   const [result, setResult] = useState("");
+  const [driftData, setDriftData] = useState(null);
   const csrfToken = getCookie("csrftoken");
 
   const handleDetectDrift = async (e) => {
@@ -587,6 +591,7 @@ function DetectInfrastructureDrift() {
       );
       const data = await response.json();
       setResult(data.message);
+      setDriftData(data.drift_data);
     } catch (error) {
       setResult("Failed to detect infrastructure drift. Please try again.");
     }
@@ -611,6 +616,30 @@ function DetectInfrastructureDrift() {
       {result && (
         <div className="result">
           <p>{result}</p>
+        </div>
+      )}
+      {driftData && (
+        <div className="result">
+          <h2>Drifted Resources:</h2>
+          {Object.keys(driftData).map((service) => (
+            <div key={service}>
+              <h3>{service}</h3>
+              <ul>
+                <li>
+                  <strong>Only in AWS:</strong>{" "}
+                  {driftData[service].only_in_aws.join(", ") || "None"}
+                </li>
+                <li>
+                  <strong>Only in State:</strong>{" "}
+                  {driftData[service].only_in_state.join(", ") || "None"}
+                </li>
+                <li>
+                  <strong>Differences:</strong>{" "}
+                  {JSON.stringify(driftData[service].differences) || "None"}
+                </li>
+              </ul>
+            </div>
+          ))}
         </div>
       )}
     </div>
