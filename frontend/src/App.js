@@ -32,6 +32,30 @@ function App() {
         <div className="component">
           <DetectInfrastructureDrift />
         </div>
+        <div className="component">
+          <CleanupEBSVolumes />
+        </div>
+        <div className="component">
+          <CleanupECRRepos />
+        </div>
+        <div className="component">
+          <DeleteECSClusters />
+        </div>
+        <div className="component">
+          <DeleteInactiveTaskDefinitions />
+        </div>
+        <div className="component">
+          <DeleteUnusedEKSClusters />
+        </div>
+        <div className="component">
+          <DeleteEC2KeyPairs />
+        </div>
+        <div className="component">
+          <DeleteOldRDSSnapshots />
+        </div>
+        <div className="component">
+          <DeleteUnusedSecurityGroups />
+        </div>
       </div>
     </div>
   );
@@ -642,6 +666,333 @@ function DetectInfrastructureDrift() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function CleanupEBSVolumes() {
+  const [retentionPeriod, setRetentionPeriod] = useState("");
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleCleanupEBSVolumes = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/cleanup_ebs_volumes/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+          body: JSON.stringify({ retentionPeriod }),
+        }
+      );
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to clean up EBS volumes. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Cleanup Unused EBS Volumes</h1>
+      <form onSubmit={handleCleanupEBSVolumes}>
+        <label>
+          Retention Period (in days):
+          <input
+            type="number"
+            value={retentionPeriod}
+            onChange={(e) => setRetentionPeriod(e.target.value)}
+            required
+          />
+        </label>
+        <button type="submit">Cleanup EBS Volumes</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function CleanupECRRepos() {
+  const [retentionPeriod, setRetentionPeriod] = useState("");
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleCleanupECRRepos = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("http://localhost:8000/cleanup_ecr_repos/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({ retentionPeriod }),
+      });
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to clean up ECR repositories. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Cleanup Empty ECR Repositories</h1>
+      <form onSubmit={handleCleanupECRRepos}>
+        <label>
+          Retention Period (in days):
+          <input
+            type="number"
+            value={retentionPeriod}
+            onChange={(e) => setRetentionPeriod(e.target.value)}
+            required
+          />
+        </label>
+        <button type="submit">Cleanup ECR Repositories</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function DeleteECSClusters() {
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleDeleteECSClusters = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/delete_ecs_clusters/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+        }
+      );
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to delete ECS clusters. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Delete Unused ECS Clusters</h1>
+      <form onSubmit={handleDeleteECSClusters}>
+        <button type="submit">Delete ECS Clusters</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function DeleteInactiveTaskDefinitions() {
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleDeleteTaskDefinitions = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/delete_task_definitions/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+        }
+      );
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to delete task definitions. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Delete Inactive ECS Task Definitions</h1>
+      <form onSubmit={handleDeleteTaskDefinitions}>
+        <button type="submit">Delete Task Definitions</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function DeleteUnusedEKSClusters() {
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleDeleteEKSClusters = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/delete_eks_clusters/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+        }
+      );
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to delete EKS clusters. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Delete Unused EKS Clusters</h1>
+      <form onSubmit={handleDeleteEKSClusters}>
+        <button type="submit">Delete EKS Clusters</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function DeleteEC2KeyPairs() {
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleDeleteKeyPairs = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("http://localhost:8000/delete_key_pairs/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfToken,
+        },
+      });
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to delete EC2 key pairs. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Delete Unused EC2 Key Pairs</h1>
+      <form onSubmit={handleDeleteKeyPairs}>
+        <button type="submit">Delete Key Pairs</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function DeleteOldRDSSnapshots() {
+  const [retentionPeriod, setRetentionPeriod] = useState("");
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleDeleteRDSSnapshots = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/delete_rds_snapshots/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+          body: JSON.stringify({ retentionPeriod }),
+        }
+      );
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to delete RDS snapshots. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Delete Old RDS Snapshots</h1>
+      <form onSubmit={handleDeleteRDSSnapshots}>
+        <label>
+          Retention Period (in days):
+          <input
+            type="number"
+            value={retentionPeriod}
+            onChange={(e) => setRetentionPeriod(e.target.value)}
+            required
+          />
+        </label>
+        <button type="submit">Delete RDS Snapshots</button>
+      </form>
+      {result && <div className="result">{result}</div>}
+    </div>
+  );
+}
+
+function DeleteUnusedSecurityGroups() {
+  const [region, setRegion] = useState("");
+  const [result, setResult] = useState("");
+  const csrfToken = getCookie("csrftoken");
+
+  const handleDeleteSecurityGroups = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(
+        "http://localhost:8000/delete_security_groups/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+          body: JSON.stringify({ region }),
+        }
+      );
+      const data = await response.json();
+      setResult(data.message);
+    } catch (error) {
+      setResult("Failed to delete unused security groups. Please try again.");
+    }
+  };
+
+  return (
+    <div className="App">
+      <h1>Delete Unused Security Groups</h1>
+      <form onSubmit={handleDeleteSecurityGroups}>
+        <label>
+          AWS Region:
+          <input
+            type="text"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder="e.g., us-west-2"
+            required
+          />
+        </label>
+        <button type="submit">Delete Unused Security Groups</button>
+      </form>
+      {result && <div className="result">{result}</div>}
     </div>
   );
 }
