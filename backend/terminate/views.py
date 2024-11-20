@@ -5,6 +5,7 @@ import boto3
 import os
 from django.views.decorators.csrf import csrf_exempt
 import json
+import time
 from botocore.exceptions import ClientError
 import logging
 from .helpers import (
@@ -430,3 +431,294 @@ def detect_infrastructure_drift(request):
             }, status=500)
     else:
         return JsonResponse({"message": "Invalid request method."}, status=405)
+
+
+@csrf_exempt
+def cleanup_ebs_volumes(request):
+    if request.method == "POST":
+        try:
+            # Parse the request body
+            data = json.loads(request.body)
+            retention_period_days = int(data.get("retentionPeriod", 0))
+            retention_cutoff_date = datetime.utcnow() - timedelta(days=retention_period_days)
+
+            ec2 = boto3.client("ec2")
+
+            # Describe all EBS volumes
+            response = ec2.describe_volumes()
+            deleted_volumes = []
+
+            for volume in response["Volumes"]:
+                if not volume["Attachments"]:  # Check if the volume is unattached
+                    # Check the creation date if retentionPeriod is specified
+                    create_time = volume["CreateTime"]
+                    if create_time < retention_cutoff_date:
+                        ec2.delete_volume(VolumeId=volume["VolumeId"])
+                        deleted_volumes.append(volume["VolumeId"])
+
+            return JsonResponse({
+                "message": f"Cleanup complete. Deleted {len(deleted_volumes)} EBS volumes.",
+                "deleted_volumes": deleted_volumes,
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred during EBS volume cleanup.",
+                "error": str(e),
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)
+
+
+@csrf_exempt
+def cleanup_ecr_repos(request):
+    if request.method == "POST":
+        try:
+            # Parse the request body
+            data = json.loads(request.body)
+            retention_period_days = int(data.get("retentionPeriod", 0))
+            retention_cutoff_date = datetime.utcnow() - timedelta(days=retention_period_days)
+
+            ecr = boto3.client("ecr")
+
+            # Describe all ECR repositories
+            response = ecr.describe_repositories()
+            deleted_repositories = []
+
+            for repo in response["repositories"]:
+                # Get list of images in the repository
+                images = ecr.list_images(repositoryName=repo["repositoryName"])["imageIds"]
+
+                # Check if repository is empty and older than retention period
+                if not images and repo["createdAt"] < retention_cutoff_date:
+                    ecr.delete_repository(repositoryName=repo["repositoryName"], force=True)
+                    deleted_repositories.append(repo["repositoryName"])
+
+            return JsonResponse({
+                "message": f"Cleanup complete. Deleted {len(deleted_repositories)} empty ECR repositories.",
+                "deleted_repositories": deleted_repositories,
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred during ECR repository cleanup.",
+                "error": str(e),
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)
+
+
+@csrf_exempt
+def delete_ecs_clusters(request):
+    if request.method == "POST":
+        try:
+            ecs = boto3.client("ecs")
+
+            # List all ECS clusters
+            response = ecs.list_clusters()
+            deleted_clusters = []
+
+            # Iterate through each cluster and check for services and tasks
+            for cluster_arn in response["clusterArns"]:
+                services = ecs.list_services(cluster=cluster_arn)["serviceArns"]
+                tasks = ecs.list_tasks(cluster=cluster_arn)["taskArns"]
+
+                # Delete cluster if no services or tasks are running
+                if not services and not tasks:
+                    ecs.delete_cluster(cluster=cluster_arn)
+                    deleted_clusters.append(cluster_arn)
+
+            return JsonResponse({
+                "message": f"Deleted {len(deleted_clusters)} unused ECS clusters.",
+                "deleted_clusters": deleted_clusters,
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred while deleting ECS clusters.",
+                "error": str(e),
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)
+
+
+@csrf_exempt
+def delete_inactive_task_definitions(request):
+    if request.method == "POST":
+        try:
+            ecs = boto3.client("ecs")
+            ecs_regions = boto3.session.Session().get_available_regions("ecs")
+            deleted_task_definitions = {}
+
+            for region in ecs_regions:
+                ecs = boto3.client("ecs", region_name=region)
+                paginator = ecs.get_paginator("list_task_definitions")
+                deleted_in_region = []
+
+                for page in paginator.paginate(status="INACTIVE"):
+                    for arn in page.get("taskDefinitionArns", []):
+                        try:
+                            backoff = 1
+                            for _ in range(5):  # Retry up to 5 times
+                                try:
+                                    ecs.deregister_task_definition(taskDefinition=arn)
+                                    deleted_in_region.append(arn)
+                                    break
+                                except ecs.exceptions.ClientException as e:
+                                    if "Throttling" in str(e):
+                                        time.sleep(backoff)
+                                        backoff *= 2
+                                    else:
+                                        raise e
+                                except ecs.exceptions.ServerException as e:
+                                    if "Throttling" in str(e):
+                                        time.sleep(backoff)
+                                        backoff *= 2
+                                    else:
+                                        raise e
+                        except Exception as e:
+                            print(f"Failed to delete task definition {arn} in {region}: {e}")
+
+                if deleted_in_region:
+                    deleted_task_definitions[region] = deleted_in_region
+
+            return JsonResponse({
+                "message": "Deleted inactive task definitions.",
+                "deleted_task_definitions": deleted_task_definitions,
+            }, status=200)
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred while deleting task definitions.",
+                "error": str(e),
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)
+
+
+@csrf_exempt
+def delete_unused_eks_clusters(request):
+    if request.method == "POST":
+        try:
+            eks_client = boto3.client("eks")
+            deleted_clusters = {}
+
+            eks_client = boto3.client("eks")
+            clusters = eks_client.list_clusters().get("clusters", [])
+            deleted_in_region = []
+
+            for cluster_name in clusters:
+                try:
+                    nodegroups = eks_client.list_nodegroups(clusterName=cluster_name).get("nodegroups", [])
+                    fargate_profiles = eks_client.list_fargate_profiles(clusterName=cluster_name).get("fargateProfileNames", [])
+                    
+                    # Check if the cluster is unused (no nodegroups and no Fargate profiles)
+                    if not nodegroups and not fargate_profiles:
+                        eks_client.delete_cluster(name=cluster_name)
+                        deleted_in_region.append(cluster_name)
+                except Exception as e:
+                    print(f"Failed to delete EKS cluster {cluster_name}: {e}")
+
+                # if deleted_in_region:
+                #     deleted_clusters[region] = deleted_in_region
+
+            return JsonResponse({
+                "message": f"{len(deleted_clusters)} Unused EKS clusters deleted successfully.",
+                "deleted_clusters": deleted_clusters,
+            }, status=200)
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred while deleting EKS clusters.",
+                "error": str(e),
+            }, status=500)
+    else:
+        return JsonResponse({"message": "Invalid request method."}, status=405)
+    
+
+
+@csrf_exempt
+def delete_unused_key_pairs(request):
+    if request.method == "POST":
+        try:
+            # Initialize EC2 client and resource
+            ec2_client = boto3.client("ec2")
+            ec2_resource = boto3.resource("ec2")
+
+            # Fetch all key pairs
+            all_key_pairs = list(ec2_resource.key_pairs.all())
+            all_key_names = {kp.name for kp in all_key_pairs}
+
+            # Fetch used key pairs
+            used_key_names = {instance.key_name for instance in ec2_resource.instances.all() if instance.key_name}
+
+            # Identify unused key pairs
+            unused_key_names = all_key_names - used_key_names
+
+            # Delete unused key pairs
+            deleted_keys = []
+            for key_name in unused_key_names:
+                try:
+                    ec2_resource.KeyPair(key_name).delete()
+                    deleted_keys.append(key_name)
+                except ClientError as e:
+                    print(f"Failed to delete key pair {key_name}: {e}")
+
+            return JsonResponse({
+                "message": "Unused EC2 key pairs deleted successfully.",
+                "deleted_keys": deleted_keys,
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred while deleting EC2 key pairs.",
+                "error": str(e),
+            }, status=500)
+
+    return JsonResponse({"message": "Invalid request method."}, status=405)
+
+import boto3
+from datetime import datetime, timedelta
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+@csrf_exempt
+def delete_rds_snapshots(request):
+    if request.method == "POST":
+        try:
+            # Parse request body
+            body = json.loads(request.body)
+            retention_period_days = int(body.get("retentionPeriod", 7))  # Default to 7 days if not provided
+
+            # Initialize RDS client
+            rds = boto3.client("rds")
+
+            # Get all RDS snapshots
+            response = rds.describe_db_snapshots()
+            retention_cutoff = datetime.now() - timedelta(days=retention_period_days)
+
+            deleted_snapshots = []
+
+            # Iterate through snapshots and delete old ones
+            for snapshot in response["DBSnapshots"]:
+                snapshot_id = snapshot["DBSnapshotIdentifier"]
+                snapshot_create_time = snapshot["SnapshotCreateTime"].replace(tzinfo=None)
+
+                if snapshot_create_time < retention_cutoff:
+                    try:
+                        rds.delete_db_snapshot(DBSnapshotIdentifier=snapshot_id)
+                        deleted_snapshots.append(snapshot_id)
+                    except boto3.exceptions.Boto3Error as e:
+                        print(f"Error deleting snapshot {snapshot_id}: {e}")
+
+            return JsonResponse({
+                "message": "Old RDS snapshots deleted successfully.",
+                "deleted_snapshots": deleted_snapshots,
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({
+                "message": "An error occurred while deleting RDS snapshots.",
+                "error": str(e),
+            }, status=500)
+
+    return JsonResponse({"message": "Invalid request method."}, status=405)

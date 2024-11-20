@@ -712,7 +712,11 @@ function CleanupEBSVolumes() {
         </label>
         <button type="submit">Cleanup EBS Volumes</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -756,7 +760,11 @@ function CleanupECRRepos() {
         </label>
         <button type="submit">Cleanup ECR Repositories</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -792,7 +800,11 @@ function DeleteECSClusters() {
       <form onSubmit={handleDeleteECSClusters}>
         <button type="submit">Delete ECS Clusters</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -805,7 +817,7 @@ function DeleteInactiveTaskDefinitions() {
     e.preventDefault();
     try {
       const response = await fetch(
-        "http://localhost:8000/delete_task_definitions/",
+        "http://localhost:8000/delete_inactive_task_definitions/",
         {
           method: "POST",
           headers: {
@@ -828,7 +840,11 @@ function DeleteInactiveTaskDefinitions() {
       <form onSubmit={handleDeleteTaskDefinitions}>
         <button type="submit">Delete Task Definitions</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -841,7 +857,7 @@ function DeleteUnusedEKSClusters() {
     e.preventDefault();
     try {
       const response = await fetch(
-        "http://localhost:8000/delete_eks_clusters/",
+        "http://localhost:8000/delete_unused_eks_clusters/",
         {
           method: "POST",
           headers: {
@@ -864,7 +880,11 @@ function DeleteUnusedEKSClusters() {
       <form onSubmit={handleDeleteEKSClusters}>
         <button type="submit">Delete EKS Clusters</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -876,14 +896,17 @@ function DeleteEC2KeyPairs() {
   const handleDeleteKeyPairs = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://localhost:8000/delete_key_pairs/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-          "X-CSRFToken": csrfToken,
-        },
-      });
+      const response = await fetch(
+        "http://localhost:8000/delete_unused_key_pairs/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken,
+          },
+        }
+      );
       const data = await response.json();
       setResult(data.message);
     } catch (error) {
@@ -897,7 +920,11 @@ function DeleteEC2KeyPairs() {
       <form onSubmit={handleDeleteKeyPairs}>
         <button type="submit">Delete Key Pairs</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -944,7 +971,11 @@ function DeleteOldRDSSnapshots() {
         </label>
         <button type="submit">Delete RDS Snapshots</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -992,7 +1023,11 @@ function DeleteUnusedSecurityGroups() {
         </label>
         <button type="submit">Delete Unused Security Groups</button>
       </form>
-      {result && <div className="result">{result}</div>}
+      {result && (
+        <div className="result">
+          <p>{result}</p>
+        </div>
+      )}
     </div>
   );
 }

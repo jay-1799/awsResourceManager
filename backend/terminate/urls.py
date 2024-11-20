@@ -12,7 +12,15 @@ urlpatterns = [
     path('delete_cloudwatch_logs/', views.delete_cloudwatch_logs, name='delete_cloudwatch_logs'),
     path('delete_iam_user_complete/', views.delete_iam_user_complete, name='delete_iam_user_complete'),
     path('remove_port_from_security_groups/', views.remove_port_from_security_groups, name='remove_port_from_security_groups'),
-    path('detect_infrastructure_drift/', views.detect_infrastructure_drift, name='detect_infrastructure_drift')
+    path('detect_infrastructure_drift/', views.detect_infrastructure_drift, name='detect_infrastructure_drift'),
+    path('cleanup_ebs_volumes/', views.cleanup_ebs_volumes, name='cleanup_ebs_volumes'),
+    path('cleanup_ecr_repos/', views.cleanup_ecr_repos, name='cleanup_ecr_repos'),
+    path('delete_ecs_clusters/', views.delete_ecs_clusters, name='delete_ecs_clusters'),
+    path('delete_inactive_task_definitions/', views.delete_inactive_task_definitions, name='delete_inactive_task_definitions'),
+    path('delete_unused_eks_clusters/', views.delete_unused_eks_clusters, name='delete_unused_eks_clusters'),
+    path('delete_unused_key_pairs/', views.delete_unused_key_pairs, name='delete_unused_key_pairs'),
+    path('delete_rds_snapshots/', views.delete_rds_snapshots, name='delete_rds_snapshots')
+
 ]
 
 
