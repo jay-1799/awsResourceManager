@@ -989,7 +989,7 @@ function DeleteUnusedSecurityGroups() {
     e.preventDefault();
     try {
       const response = await fetch(
-        "http://localhost:8000/delete_security_groups/",
+        "http://localhost:8000/delete_unused_security_groups/",
         {
           method: "POST",
           headers: {

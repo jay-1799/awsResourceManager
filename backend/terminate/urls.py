@@ -19,7 +19,8 @@ urlpatterns = [
     path('delete_inactive_task_definitions/', views.delete_inactive_task_definitions, name='delete_inactive_task_definitions'),
     path('delete_unused_eks_clusters/', views.delete_unused_eks_clusters, name='delete_unused_eks_clusters'),
     path('delete_unused_key_pairs/', views.delete_unused_key_pairs, name='delete_unused_key_pairs'),
-    path('delete_rds_snapshots/', views.delete_rds_snapshots, name='delete_rds_snapshots')
+    path('delete_rds_snapshots/', views.delete_rds_snapshots, name='delete_rds_snapshots'),
+    path('delete_unused_security_groups/', views.delete_unused_security_groups, name='delete_unused_security_groups')
 
 ]
 

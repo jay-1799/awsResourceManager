@@ -8,6 +8,7 @@ import json
 import time
 from botocore.exceptions import ClientError
 import logging
+from botocore.exceptions import BotoCoreError, ClientError
 from .helpers import (
     delete_access_keys,
     delete_signing_certificates,
@@ -675,12 +676,6 @@ def delete_unused_key_pairs(request):
 
     return JsonResponse({"message": "Invalid request method."}, status=405)
 
-import boto3
-from datetime import datetime, timedelta
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
-
 @csrf_exempt
 def delete_rds_snapshots(request):
     if request.method == "POST":
@@ -722,3 +717,45 @@ def delete_rds_snapshots(request):
             }, status=500)
 
     return JsonResponse({"message": "Invalid request method."}, status=405)
+
+
+
+
+@csrf_exempt
+def delete_unused_security_groups(request):
+    try:
+        # Parse JSON payload
+        data = json.loads(request.body)
+        region = data.get("region")
+
+        if not region:
+            return JsonResponse({"message": "AWS region is required."}, status=400)
+
+        ec2 = boto3.client("ec2", region_name=region)
+
+        # Get all security groups
+        security_groups = ec2.describe_security_groups()["SecurityGroups"]
+
+        # Identify unused security groups (those not associated with any ENI)
+        unused_groups = []
+        for sg in security_groups:
+            if not sg.get("GroupName") == "default":  # Skip default group
+                attached_enis = ec2.describe_network_interfaces(
+                    Filters=[{"Name": "group-id", "Values": [sg["GroupId"]]}]
+                )["NetworkInterfaces"]
+                if not attached_enis:
+                    unused_groups.append(sg["GroupId"])
+
+        # Delete unused security groups
+        for sg_id in unused_groups:
+            ec2.delete_security_group(GroupId=sg_id)
+
+        message = f"Deleted {len(unused_groups)} unused security groups in region {region}."
+        return JsonResponse({"message": message})
+
+    except BotoCoreError as e:
+        return JsonResponse({"message": f"AWS error occurred: {str(e)}"}, status=500)
+    except ClientError as e:
+        return JsonResponse({"message": f"Client error occurred: {str(e)}"}, status=500)
+    except Exception as e:
+        return JsonResponse({"message": f"An error occurred: {str(e)}"}, status=500)
