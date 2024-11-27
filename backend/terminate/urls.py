@@ -20,7 +20,8 @@ urlpatterns = [
     path('delete_unused_eks_clusters/', views.delete_unused_eks_clusters, name='delete_unused_eks_clusters'),
     path('delete_unused_key_pairs/', views.delete_unused_key_pairs, name='delete_unused_key_pairs'),
     path('delete_rds_snapshots/', views.delete_rds_snapshots, name='delete_rds_snapshots'),
-    path('delete_unused_security_groups/', views.delete_unused_security_groups, name='delete_unused_security_groups')
+    path('delete_unused_security_groups/', views.delete_unused_security_groups, name='delete_unused_security_groups'),
+    path('manage_iam_keys/', views.manage_iam_keys, name='manage_iam_keys')
 
 ]
 

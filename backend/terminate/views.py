@@ -759,3 +759,94 @@ def delete_unused_security_groups(request):
         return JsonResponse({"message": f"Client error occurred: {str(e)}"}, status=500)
     except Exception as e:
         return JsonResponse({"message": f"An error occurred: {str(e)}"}, status=500)
+
+
+
+iam_client = boto3.client("iam")
+@csrf_exempt
+def manage_iam_keys(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            username = data.get("username")
+            action = data.get("action")
+            access_key = data.get("accessKey", None)
+
+            if not username or not action:
+                return JsonResponse(
+                    {"message": "Username and action are required."}, status=400
+                )
+
+            # Handle actions
+            if action == "create":
+                return create_iam_key(username)
+            elif action == "disable" and access_key:
+                return disable_iam_key(username, access_key)
+            elif action == "delete" and access_key:
+                return delete_iam_key(username, access_key)
+            else:
+                return JsonResponse(
+                    {"message": "Invalid action or missing access key."}, status=400
+                )
+
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON payload."}, status=400)
+        except Exception as e:
+            return JsonResponse({"message": f"An error occurred: {str(e)}"}, status=500)
+    else:
+        return JsonResponse({"message": "Method not allowed."}, status=405)
+
+
+def create_iam_key(username):
+    try:
+        keys = iam_client.list_access_keys(UserName=username)["AccessKeyMetadata"]
+        if len(keys) >= 2:
+            return JsonResponse(
+                {
+                    "message": f"{username} already has 2 keys. You must delete a key before you can create another key."
+                },
+                status=400,
+            )
+
+        access_key_metadata = iam_client.create_access_key(UserName=username)[
+            "AccessKey"
+        ]
+        access_key = access_key_metadata["AccessKeyId"]
+        secret_key = access_key_metadata["SecretAccessKey"]
+
+        return JsonResponse(
+            {
+                "message": "Access key created successfully.",
+                "accessKey": access_key,
+                "secretKey": secret_key,
+            }
+        )
+    except ClientError as e:
+        return JsonResponse(
+            {"message": f"Failed to create access key for {username}: {str(e)}"},
+            status=500,
+        )
+
+
+def disable_iam_key(username, access_key):
+    try:
+        iam_client.update_access_key(
+            UserName=username, AccessKeyId=access_key, Status="Inactive"
+        )
+        return JsonResponse({"message": f"Access key {access_key} has been disabled."})
+    except ClientError as e:
+        return JsonResponse(
+            {"message": f"Failed to disable access key {access_key}: {str(e)}"},
+            status=500,
+        )
+
+
+def delete_iam_key(username, access_key):
+    try:
+        iam_client.delete_access_key(UserName=username, AccessKeyId=access_key)
+        return JsonResponse({"message": f"Access key {access_key} has been deleted."})
+    except ClientError as e:
+        return JsonResponse(
+            {"message": f"Failed to delete access key {access_key}: {str(e)}"},
+            status=500,
+        )

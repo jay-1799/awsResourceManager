@@ -56,6 +56,9 @@ function App() {
         <div className="component">
           <DeleteUnusedSecurityGroups />
         </div>
+        <div className="component">
+          <ManageIAMKeys />
+        </div>
       </div>
     </div>
   );
@@ -1026,6 +1029,91 @@ function DeleteUnusedSecurityGroups() {
       {result && (
         <div className="result">
           <p>{result}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManageIAMKeys() {
+  const [username, setUsername] = useState("");
+  const [action, setAction] = useState("create");
+  const [accessKey, setAccessKey] = useState("");
+  const [secretKey, setSecretKey] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("http://localhost:8000/manage_iam_keys/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, action }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage(data.message);
+        if (action === "create") {
+          setAccessKey(data.accessKey);
+          setSecretKey(data.secretKey);
+        }
+      } else {
+        setMessage(data.message || "An error occurred");
+        setAccessKey("");
+        setSecretKey("");
+      }
+    } catch (error) {
+      setMessage("Failed to perform action. Please try again.");
+      setAccessKey("");
+      setSecretKey("");
+    }
+  };
+
+  return (
+    <div>
+      <h1>Manage IAM Keys</h1>
+      <form onSubmit={handleSubmit}>
+        <label>
+          Username:
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Action:
+          <select
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            required
+          >
+            <option value="create">Create</option>
+            <option value="disable">Disable</option>
+            <option value="delete">Delete</option>
+          </select>
+        </label>
+        <button type="submit">Submit</button>
+      </form>
+      {message && (
+        <div className="result">
+          <p>{message}</p>
+          {action === "create" && accessKey && secretKey && (
+            <div>
+              <h2>New Access Key Details</h2>
+              <p>
+                <strong>Access Key:</strong> {accessKey}
+              </p>
+              <p>
+                <strong>Secret Key:</strong> {secretKey}
+              </p>
+              <p style={{ color: "red" }}>
+                **Please copy the secret key now. It won't be shown again.**
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
